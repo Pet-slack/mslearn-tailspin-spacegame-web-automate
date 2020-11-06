@@ -124,3 +124,63 @@ stages:
               azureSubscription: 'MSAnsible_Conn'
               appName: '$(WebAppNameDev)'
               package: '$(Pipeline.Workspace)/drop/$(buildConfiguration)/*.zip'
+
+- stage: 'Prod'
+  displayName: 'Deploy to the prod environment'
+  dependsOn: Build
+  jobs:
+  - job: Provision
+    displayName: 'Provision Azure App Service'
+    pool:
+      vmImage: 'ubuntu-18.04'
+    variables:
+    - group: Release
+    steps:
+    - script: |
+        # Exit when any command returns a failure status.
+        set -e
+
+        # Write terraform.tfvars.
+        echo 'resource_group_location = "'$(ResourceGroupLocation)'"' | tee terraform.tfvars
+        # Write backend.tfvars.
+        echo 'resource_group_name = "tf-storage-rg"' | tee backend.tfvars
+        echo 'storage_account_name = "'$(StorageAccountName)'"' | tee -a backend.tfvars
+        echo 'container_name = "tfstate"' | tee -a backend.tfvars
+        echo 'key = "terraform.tfstate"' | tee -a backend.tfvars
+
+        # Initialize Terraform.
+        terraform init -input=false -backend-config="backend.tfvars" prod/
+        # Apply the Terraform plan.
+        terraform apply -input=false -auto-approve prod/
+
+        # Get the App Service name for the prod environment.
+        WebAppNameprod=$(terraform output appservice_name_prod prod/)
+
+        # Write the WebAppNameprod variable to the pipeline.
+        echo "##vso[task.setvariable variable=WebAppNameprod;isOutput=true]$WebAppNameprod"
+      name: 'RunTerraform'
+      displayName: 'Run Terraform'
+      env:
+        ARM_CLIENT_ID: $(ARM_CLIENT_ID)
+        ARM_CLIENT_SECRET: $(ARM_CLIENT_SECRET)
+        ARM_TENANT_ID: $(ARM_TENANT_ID)
+        ARM_SUBSCRIPTION_ID: $(ARM_SUBSCRIPTION_ID)
+  - deployment: Deploy
+    dependsOn: Provision
+    variables:
+      WebAppNameprod: $[ dependencies.Provision.outputs['RunTerraform.WebAppNameprod'] ]
+    pool:
+      vmImage: 'ubuntu-18.04'
+    environment: prod
+    strategy:
+      runOnce:
+        deploy:
+          steps:
+          - download: current
+            artifact: drop
+          - task: AzureWebApp@1
+            displayName: 'Azure App Service Deploy: website'
+            inputs:
+              azureSubscription: 'MSAnsible_Conn'
+              appName: '$(WebAppNameprod)'
+              package: '$(Pipeline.Workspace)/drop/$(buildConfiguration)/*.zip'

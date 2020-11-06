@@ -52,6 +52,7 @@ resource "azurerm_app_service_plan" "spacegame" {
   }
 }
 
+### DEV - webapp ###
 resource "azurerm_app_service" "spacegame_dev" {
   name                = "${var.app_service_name_prefix}-dev-${random_integer.app_service_name_suffix.result}"
   location            = azurerm_resource_group.spacegame.location
@@ -70,4 +71,25 @@ output "appservice_name_dev" {
 output "website_hostname_dev" {
   value       = azurerm_app_service.spacegame_dev.default_site_hostname
   description = "The hostname of the website in the dev environment"
+}
+
+### PROD - webapp ###
+resource "azurerm_app_service" "spacegame_prod" {
+  name                = "${var.app_service_name_prefix}-prod-${random_integer.app_service_name_suffix.result}"
+  location            = azurerm_resource_group.spacegame.location
+  resource_group_name = azurerm_resource_group.spacegame.name
+  app_service_plan_id = azurerm_app_service_plan.spacegame.id
+
+  site_config {
+    linux_fx_version = "DOTNETCORE|3.1"
+  }
+}
+
+output "appservice_name_prod" {
+  value       = azurerm_app_service.spacegame_prod.name
+  description = "The App Service name for the prod environment"
+}
+output "website_hostname_prod" {
+  value       = azurerm_app_service.spacegame_prod.default_site_hostname
+  description = "The hostname of the website in the prod environment"
 }

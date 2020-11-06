@@ -127,7 +127,7 @@ stages:
 
 - stage: 'Prod'
   displayName: 'Deploy to the prod environment'
-  dependsOn: Build
+  dependsOn: Dev
   jobs:
   - job: Provision
     displayName: 'Provision Azure App Service'

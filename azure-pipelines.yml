@@ -154,7 +154,7 @@ stages:
         terraform apply -input=false -auto-approve prod/
 
         # Get the App Service name for the prod environment.
-        WebAppNameprod=$(terraform output appservice_name_prod prod/)
+        WebAppNameprod=$(terraform output appservice_name_prod)
 
         # Write the WebAppNameprod variable to the pipeline.
         echo "##vso[task.setvariable variable=WebAppNameprod;isOutput=true]$WebAppNameprod"
